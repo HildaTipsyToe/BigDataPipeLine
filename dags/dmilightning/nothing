@@ -1,0 +1,66 @@
+
+def pull_data_request_climate(service: str, data_dir: str, data_name: str,page_size: int, apikey: str, ts: datetime, starttime: datetime) -> list:
+    nFeatures = 0
+    page_index = 0
+
+    fNames = []
+
+    while True:
+        params = {
+            'api-key': apikey,
+            #'countryId':"", #Filter by countryId
+            'datetime': starttime.astimezone().isoformat(timespec='seconds') + '/' + ts.astimezone().isoformat(timespec='seconds'),#datetime searching as specified in https://docs.opengeospatial.org/is/17-069r3/17-069r3.html#_parameter_datetime and dates as specified in RFC3339 https://tools.ietf.org/html/rfc3339. Will filter to only include country values which starts within the specified time interval. Both the upper and lower limit is inclusive.
+#As an illustrative example, if you asked for the interval 2004-03-12T14:00:00Z - 2004-04-14:15:00:00Z you would get:
+            #'parameterId':"", #Filter by parameterId - see parameter list here
+            #'sortorder':"", #Ordering of returned results. Default is unsorted
+            #'timeResolution':"", #Filter by time resolution (hour/day/month/year), ie. what type of time interval the country value represents
+            #'qcStatus':"", #Filter by qcStatus
+            'limit': page_size,#Maximum number of results to return
+            'offset': page_index*page_size, #number of results to skip before returning matching results
+            #'bbox':"", #Select country values within bounding box. Southwesterly point (lon,lat) followed by northeasterly point (lon, lat)
+            'bbox-crs': "https://www.opengis.net/def/crs/OGC/1.3/CRS84", #Which coordinate reference system to use. Only the CRS84 is supported   -    Default value : https://www.opengis.net/def/crs/OGC/1.3/CRS84
+        }
+        print(params)
+        r = requests.get(DMI_URL + service, params=params)
+
+        if r.status_code != requests.codes.ok:
+            print(r)
+            print(r.text)
+            print(params)
+            print(
+                "FEJL! FEJL! FEJL! FEJL! FEJL! FEJL! FEJL! FEJL! FEJL! FEJL! FEJL! FEJL! FEJL! FEJL! FEJL! FEJL! FEJL! FEJL! FEJL! FEJL! FEJL! ")
+            break
+        else:
+            rjson = r.json()
+            print(
+                "KAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARL")
+            print(params['datetime'])
+            print(f"Total number of features in climate: {len(rjson['features'])}")
+            nFeatures += len(rjson['features'])
+
+        if rjson['numberReturned'] > 0:
+            page_index += 1
+            print("**********************************************************************************")
+            fName = f'{data_dir}/{data_name}_#{page_index}.json'.replace(':','-')
+            with open(fName, 'w+', encoding='Utf-8') as f:
+                f.write(r.text)
+            fNames.append(fName)
+        else:
+            print("No values")
+            break
+    return fNames
+
+
+@task()
+def extract_climate(**kwargs):
+    service = 'climateData/collections/countryValue/items'
+    apikey = api_key_climate
+
+    ts = datetime.fromisoformat((kwargs['ts']))
+    starttime = ts - timedelta(days=10)
+    data_dir = kwargs['sti']
+    data_name = "Data_climate"
+
+    page_Size = 500
+
+    return pull_data_request_climate(service, data_dir, data_name, page_Size, apikey, ts, starttime)
